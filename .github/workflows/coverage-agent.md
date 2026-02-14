@@ -12,11 +12,10 @@ network:
   defaults
 
 safe-outputs:
-  create-discussion:
+  create-issue:
     title-prefix: "Coverage Plan - "
-    category: "ideas"
+    labels: [automation, coverage, tests]
   add-comment:
-    discussion: true
     target: "*"
   create-pull-request:
     draft: true
@@ -59,17 +58,17 @@ You are a senior Python test engineer for this repository.
 - Measure before/after and include numbers in the PR description.
 
 ## Process (repeat across runs)
-1) If there is no existing discussion titled "Coverage Plan - <repo>":
-   - Create a discussion with:
+1) If there is no existing issue titled "Coverage Plan - <repo>":
+  - Create an issue with:
      - current coverage summary
      - lowest-coverage files
      - a plan for 3 small PRs to raise coverage
    - Stop.
 
 2) On later runs:
-   - Read the discussion plan
+  - Read the issue plan
    - Pick the next low-coverage area
    - Add tests that raise coverage and improve confidence (including negative cases)
    - Re-run coverage and capture before/after
    - Open a draft PR titled "Improve coverage (part N)"
-   - Comment in the discussion with PR link + results
+  - Comment in the issue with PR link + results
