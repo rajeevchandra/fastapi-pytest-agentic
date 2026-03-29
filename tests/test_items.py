@@ -29,3 +29,93 @@ def test_get_item_not_found():
     r = client.get("/items/2")
     assert r.status_code == 404
     assert r.json()["detail"] == "not found"
+
+
+# PR #1: Enhanced Input Validation Tests
+# Test negative price values
+def test_create_item_negative_price():
+    r = client.post("/items", json={"name": "item", "price": -1})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "price must be > 0"
+
+
+def test_create_item_large_negative_price():
+    r = client.post("/items", json={"name": "item", "price": -100.50})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "price must be > 0"
+
+
+# Test missing required fields
+def test_create_item_missing_name():
+    r = client.post("/items", json={"price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_missing_price():
+    r = client.post("/items", json={"name": "item"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+# Test invalid data types
+def test_create_item_invalid_price_type_string():
+    r = client.post("/items", json={"name": "item", "price": "not-a-number"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_invalid_name_type_number():
+    r = client.post("/items", json={"name": 123, "price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+# Test null values
+def test_create_item_null_name():
+    r = client.post("/items", json={"name": None, "price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_null_price():
+    r = client.post("/items", json={"name": "item", "price": None})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+# Test edge cases
+def test_create_item_empty_name():
+    r = client.post("/items", json={"name": "", "price": 10.0})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == ""
+
+
+def test_create_item_whitespace_name():
+    r = client.post("/items", json={"name": "   ", "price": 10.0})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "   "
+
+
+def test_create_item_very_large_price():
+    r = client.post("/items", json={"name": "expensive", "price": 999999999.99})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["price"] == 999999999.99
+
+
+def test_create_item_very_long_name():
+    long_name = "a" * 10000
+    r = client.post("/items", json={"name": long_name, "price": 10.0})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == long_name
+
+
+# Test malformed input
+def test_create_item_malformed_json():
+    r = client.post("/items", data="not-valid-json", headers={"Content-Type": "application/json"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
