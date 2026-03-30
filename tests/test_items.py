@@ -29,3 +29,55 @@ def test_get_item_not_found():
     r = client.get("/items/2")
     assert r.status_code == 404
     assert r.json()["detail"] == "not found"
+
+
+# PR #2: GET Endpoint Edge Cases & Error Handling
+
+
+def test_get_item_zero_id():
+    """Test GET with item_id = 0 (boundary value)"""
+    r = client.get("/items/0")
+    assert r.status_code == 404
+    assert r.json()["detail"] == "not found"
+
+
+def test_get_item_negative_id():
+    """Test GET with negative item_id"""
+    r = client.get("/items/-1")
+    assert r.status_code == 404
+    assert r.json()["detail"] == "not found"
+
+
+def test_get_item_large_negative_id():
+    """Test GET with large negative item_id"""
+    r = client.get("/items/-999999")
+    assert r.status_code == 404
+    assert r.json()["detail"] == "not found"
+
+
+def test_get_item_very_large_id():
+    """Test GET with very large item_id"""
+    r = client.get("/items/999999999")
+    assert r.status_code == 404
+    assert r.json()["detail"] == "not found"
+
+
+def test_get_item_max_int_boundary():
+    """Test GET with maximum integer boundary value"""
+    r = client.get("/items/2147483647")
+    assert r.status_code == 404
+    assert r.json()["detail"] == "not found"
+
+
+def test_get_item_invalid_string_id():
+    """Test GET with string instead of integer for item_id"""
+    r = client.get("/items/abc")
+    assert r.status_code == 422  # FastAPI validation error
+    assert "detail" in r.json()
+
+
+def test_get_item_invalid_float_id():
+    """Test GET with float instead of integer for item_id"""
+    r = client.get("/items/1.5")
+    assert r.status_code == 422  # FastAPI validation error
+    assert "detail" in r.json()
