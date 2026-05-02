@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from app.main import app
+import pytest
 
 client = TestClient(app)
 
@@ -29,3 +30,104 @@ def test_get_item_not_found():
     r = client.get("/items/2")
     assert r.status_code == 404
     assert r.json()["detail"] == "not found"
+
+
+# Enhanced Input Validation Tests - PR #1
+
+
+def test_create_item_rejects_negative_price():
+    """Test that negative prices are properly rejected"""
+    r = client.post("/items", json={"name": "item", "price": -1})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "price must be > 0"
+
+
+def test_create_item_rejects_large_negative_price():
+    """Test that large negative prices are properly rejected"""
+    r = client.post("/items", json={"name": "item", "price": -9999.99})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "price must be > 0"
+
+
+def test_create_item_missing_name_field():
+    """Test that missing name field returns validation error"""
+    r = client.post("/items", json={"price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_missing_price_field():
+    """Test that missing price field returns validation error"""
+    r = client.post("/items", json={"name": "book"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_invalid_price_type_string():
+    """Test that string price values are rejected"""
+    r = client.post("/items", json={"name": "book", "price": "not-a-number"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_invalid_name_type_number():
+    """Test that numeric name values are rejected"""
+    r = client.post("/items", json={"name": 12345, "price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_null_name():
+    """Test that null name is rejected"""
+    r = client.post("/items", json={"name": None, "price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_null_price():
+    """Test that null price is rejected"""
+    r = client.post("/items", json={"name": "book", "price": None})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_empty_string_name():
+    """Test that empty string name is accepted by Pydantic but validates"""
+    r = client.post("/items", json={"name": "", "price": 10.0})
+    # FastAPI/Pydantic accepts empty strings as valid strings
+    assert r.status_code == 200
+
+
+def test_create_item_whitespace_only_name():
+    """Test that whitespace-only name is accepted"""
+    r = client.post("/items", json={"name": "   ", "price": 10.0})
+    assert r.status_code == 200
+
+
+def test_create_item_very_large_price():
+    """Test that very large prices are handled correctly"""
+    r = client.post("/items", json={"name": "expensive", "price": 999999999.99})
+    assert r.status_code == 200
+    assert r.json()["price"] == 999999999.99
+
+
+def test_create_item_very_long_name():
+    """Test that very long names are handled"""
+    long_name = "a" * 10000
+    r = client.post("/items", json={"name": long_name, "price": 10.0})
+    assert r.status_code == 200
+    assert r.json()["name"] == long_name
+
+
+def test_create_item_malformed_json():
+    """Test that malformed JSON returns appropriate error"""
+    r = client.post("/items", data="{invalid json", headers={"Content-Type": "application/json"})
+    assert r.status_code == 422
+
+
+def test_create_item_extra_fields_ignored():
+    """Test that extra fields in request are handled"""
+    r = client.post("/items", json={"name": "book", "price": 10.0, "extra": "field"})
+    # Pydantic ignores extra fields by default
+    assert r.status_code == 200
+    assert "extra" not in r.json()
