@@ -29,3 +29,112 @@ def test_get_item_not_found():
     r = client.get("/items/2")
     assert r.status_code == 404
     assert r.json()["detail"] == "not found"
+
+
+# --- Enhanced Input Validation Tests (PR #1) ---
+
+def test_create_item_negative_price():
+    """Test that negative prices are rejected"""
+    r = client.post("/items", json={"name": "book", "price": -1})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "price must be > 0"
+
+
+def test_create_item_large_negative_price():
+    """Test that large negative prices are rejected"""
+    r = client.post("/items", json={"name": "book", "price": -100.99})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "price must be > 0"
+
+
+def test_create_item_missing_name():
+    """Test that missing name field returns 422 validation error"""
+    r = client.post("/items", json={"price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_missing_price():
+    """Test that missing price field returns 422 validation error"""
+    r = client.post("/items", json={"name": "book"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_invalid_price_type():
+    """Test that string price returns 422 validation error"""
+    r = client.post("/items", json={"name": "book", "price": "expensive"})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_invalid_name_type():
+    """Test that non-string name returns 422 validation error"""
+    r = client.post("/items", json={"name": 123, "price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_null_name():
+    """Test that null name returns 422 validation error"""
+    r = client.post("/items", json={"name": None, "price": 10.0})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_null_price():
+    """Test that null price returns 422 validation error"""
+    r = client.post("/items", json={"name": "book", "price": None})
+    assert r.status_code == 422
+    assert "detail" in r.json()
+
+
+def test_create_item_empty_string_name():
+    """Test that empty string name is accepted by Pydantic but creates item"""
+    r = client.post("/items", json={"name": "", "price": 10.0})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == ""
+
+
+def test_create_item_whitespace_name():
+    """Test that whitespace-only name is accepted"""
+    r = client.post("/items", json={"name": "   ", "price": 10.0})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "   "
+
+
+def test_create_item_very_large_price():
+    """Test that very large prices are accepted"""
+    r = client.post("/items", json={"name": "expensive", "price": 999999999.99})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["price"] == 999999999.99
+
+
+def test_create_item_very_long_name():
+    """Test that very long names are accepted"""
+    long_name = "a" * 10000
+    r = client.post("/items", json={"name": long_name, "price": 10.0})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == long_name
+
+
+def test_create_item_malformed_json():
+    """Test that malformed JSON returns 422"""
+    r = client.post(
+        "/items",
+        data="{invalid json",
+        headers={"Content-Type": "application/json"}
+    )
+    assert r.status_code == 422
+
+
+def test_create_item_extra_fields():
+    """Test that extra fields are ignored by Pydantic"""
+    r = client.post("/items", json={"name": "book", "price": 10.0, "extra": "ignored"})
+    assert r.status_code == 200
+    data = r.json()
+    assert "extra" not in data
