@@ -132,6 +132,19 @@ class TestGetItemSuccess:
         assert "price" in data
         assert len(data) == 3
 
+    def test_get_item_response_types(self):
+        r = client.get("/items/1")
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data["id"], int)
+        assert isinstance(data["name"], str)
+        assert isinstance(data["price"], (int, float))
+
+    def test_get_item_response_content_type(self):
+        r = client.get("/items/1")
+        assert r.status_code == 200
+        assert "application/json" in r.headers.get("content-type", "")
+
 
 class TestGetItemNotFound:
     def test_get_item_not_found(self):
@@ -155,4 +168,45 @@ class TestGetItemNotFound:
 
     def test_get_item_id_boundary_large(self):
         r = client.get("/items/2147483647")
+        assert r.status_code == 404
+
+    def test_get_item_error_response_structure(self):
+        r = client.get("/items/999")
+        assert r.status_code == 404
+        data = r.json()
+        assert "detail" in data
+        assert isinstance(data["detail"], str)
+
+
+class TestGetItemPathParameterValidation:
+    def test_get_item_with_string_path_param(self):
+        r = client.get("/items/abc")
+        assert r.status_code == 422
+        data = r.json()
+        assert "detail" in data
+
+    def test_get_item_with_float_path_param(self):
+        r = client.get("/items/1.5")
+        assert r.status_code == 422
+        assert "detail" in r.json()
+
+    def test_get_item_with_special_chars_in_path(self):
+        r = client.get("/items/abc@123")
+        assert r.status_code == 422
+
+    def test_get_item_with_empty_path_param_matches_items_endpoint(self):
+        # GET /items/ tries to match /items/{item_id} but no item_id provided
+        # so it fails to match and tries the collection endpoint
+        r = client.get("/items/")
+        # 405 Method Not Allowed is correct - no GET on items collection
+        assert r.status_code == 405
+
+    def test_get_item_with_very_large_integer(self):
+        large_int = 9223372036854775807  # max int64
+        r = client.get(f"/items/{large_int}")
+        assert r.status_code == 404
+
+    def test_get_item_with_negative_large_integer(self):
+        large_negative = -9223372036854775808  # min int64
+        r = client.get(f"/items/{large_negative}")
         assert r.status_code == 404
